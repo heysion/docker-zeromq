@@ -1,5 +1,7 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2009-2011 250bpm s.r.o.
+    Copyright (c) 2007-2009 iMatix Corporation
+    Copyright (c) 2007-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -41,13 +43,11 @@ namespace zmq
 
         //  This method is called by the session to signalise that more
         //  messages can be written to the pipe.
-        virtual void restart_input () = 0;
+        virtual void activate_in () = 0;
 
         //  This method is called by the session to signalise that there
         //  are messages to send available.
-        virtual void restart_output () = 0;
-
-        virtual void zap_msg_available () = 0;
+        virtual void activate_out () = 0;
     };
 
 }

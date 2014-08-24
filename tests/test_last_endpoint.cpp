@@ -1,5 +1,7 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2007-2012 iMatix Corporation
+    Copyright (c) 2011 250bpm s.r.o.
+    Copyright (c) 2007-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -17,7 +19,11 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "testutil.hpp"
+#include "../include/zmq.h"
+#include <string.h>
+
+#undef NDEBUG
+#include <assert.h>
 
 static void do_bind_and_verify (void *s, const char *endpoint)
 {
@@ -31,26 +37,23 @@ static void do_bind_and_verify (void *s, const char *endpoint)
 
 int main (void)
 {
-    setup_test_environment();
     //  Create the infrastructure
-    void *ctx = zmq_ctx_new ();
+    void *ctx = zmq_init (1);
     assert (ctx);
 
     void *sb = zmq_socket (ctx, ZMQ_ROUTER);
     assert (sb);
-    int val = 0;
-    int rc = zmq_setsockopt (sb, ZMQ_LINGER, &val, sizeof (val));
-    assert (rc == 0);
 
     do_bind_and_verify (sb, "tcp://127.0.0.1:5560");
     do_bind_and_verify (sb, "tcp://127.0.0.1:5561");
+    do_bind_and_verify (sb, "ipc:///tmp/testep");
 
-    rc = zmq_close (sb);
+    int rc = zmq_close (sb);
     assert (rc == 0);
     
-    rc = zmq_ctx_term (ctx);
+    rc = zmq_term (ctx);
     assert (rc == 0);
 
-    return 0 ;
+    return 0;
 }
 

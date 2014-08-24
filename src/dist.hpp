@@ -1,5 +1,6 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2011 250bpm s.r.o.
+    Copyright (c) 2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -54,13 +55,13 @@ namespace zmq
         void unmatch ();
 
         //  Removes the pipe from the distributor object.
-        void pipe_terminated (zmq::pipe_t *pipe_);
+        void terminated (zmq::pipe_t *pipe_);
 
         //  Send the message to the matching outbound pipes.
-        int send_to_matching (zmq::msg_t *msg_);
+        int send_to_matching (zmq::msg_t *msg_, int flags_);
 
         //  Send the message to all the outbound pipes.
-        int send_to_all (zmq::msg_t *msg_);
+        int send_to_all (zmq::msg_t *msg_, int flags_);
 
         bool has_out ();
 
@@ -71,7 +72,7 @@ namespace zmq
         bool write (zmq::pipe_t *pipe_, zmq::msg_t *msg_);
 
         //  Put the message to all active pipes.
-        void distribute (zmq::msg_t *msg_);
+        void distribute (zmq::msg_t *msg_, int flags_);
 
         //  List of outbound pipes.
         typedef array_t <zmq::pipe_t, 2> pipes_t;

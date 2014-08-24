@@ -1,5 +1,6 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2011 250bpm s.r.o.
+    Copyright (c) 2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -112,8 +113,7 @@ void zmq::ipc_connecter_t::out_event ()
         return;
     }
     //  Create the engine object for this connection.
-    stream_engine_t *engine = new (std::nothrow)
-        stream_engine_t (fd, options, endpoint);
+    stream_engine_t *engine = new (std::nothrow) stream_engine_t (fd, options, endpoint);
     alloc_assert (engine);
 
     //  Attach the engine to the corresponding session object.

@@ -1,5 +1,8 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2009-2011 250bpm s.r.o.
+    Copyright (c) 2007-2009 iMatix Corporation
+    Copyright (c) 2010-2011 Miru Limited
+    Copyright (c) 2007-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -34,7 +37,7 @@
 #include "io_object.hpp"
 #include "i_engine.hpp"
 #include "options.hpp"
-#include "v1_decoder.hpp"
+#include "decoder.hpp"
 #include "pgm_socket.hpp"
 
 namespace zmq
@@ -57,9 +60,8 @@ namespace zmq
         void plug (zmq::io_thread_t *io_thread_,
             zmq::session_base_t *session_);
         void terminate ();
-        void restart_input ();
-        void restart_output ();
-        void zap_msg_available () {}
+        void activate_in ();
+        void activate_out ();
 
         //  i_poll_events interface implementation.
         void in_event ();
@@ -69,10 +71,6 @@ namespace zmq
 
         //  Unplug the engine from the session.
         void unplug ();
-
-        //  Decode received data (inpos, insize) and forward decoded
-        //  messages to the session.
-        int process_input (v1_decoder_t *decoder);
 
         //  PGM is not able to move subscriptions upstream. Thus, drop all
         //  the pending subscriptions.
@@ -90,7 +88,7 @@ namespace zmq
         struct peer_info_t
         {
             bool joined;
-            v1_decoder_t *decoder;
+            decoder_t *decoder;
         };
 
         struct tsi_comp
@@ -117,13 +115,14 @@ namespace zmq
         //  Associated session.
         zmq::session_base_t *session;
 
-        const pgm_tsi_t *active_tsi;
+        //  Most recently used decoder.
+        decoder_t *mru_decoder;
 
         //  Number of bytes not consumed by the decoder due to pipe overflow.
-        size_t insize;
+        size_t pending_bytes;
 
         //  Pointer to data still waiting to be processed by the decoder.
-        const unsigned char *inpos;
+        unsigned char *pending_ptr;
 
         //  Poll handle associated with PGM socket.
         handle_t socket_handle;

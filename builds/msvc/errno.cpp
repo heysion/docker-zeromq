@@ -1,4 +1,4 @@
-#if defined _WIN32_WCE
+#if defined WINCE
 
 //#include "..\..\include\zmq.h"
 #include "..\..\src\err.hpp"

@@ -24,7 +24,6 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="copy ..\platform.hpp ..\..\..\perf"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -95,7 +94,6 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="copy ..\platform.hpp ..\..\..\perf"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"

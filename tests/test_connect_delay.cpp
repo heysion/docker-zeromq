@@ -17,11 +17,18 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "testutil.hpp"
+#include "../include/zmq.h"
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <string>
+
+#undef NDEBUG
+#include <assert.h>
 
 int main (void)
 {
-    setup_test_environment();
     int val;
     int rc;
     char buffer[16];
@@ -41,7 +48,7 @@ int main (void)
     val = 0;
     rc = zmq_setsockopt(to, ZMQ_LINGER, &val, sizeof(val));
     assert (rc == 0);
-    rc = zmq_bind (to, "tcp://127.0.0.1:6555");
+    rc = zmq_bind (to, "tcp://*:6555");
     assert (rc == 0);
 
     // Create a socket pushing to two endpoints - only 1 message should arrive.
@@ -85,7 +92,7 @@ int main (void)
     rc = zmq_close (to);
     assert (rc == 0);
 
-    rc = zmq_ctx_term (context);
+    rc = zmq_term (context);
     assert (rc == 0);
 
     // TEST 2
@@ -100,7 +107,7 @@ int main (void)
     // Bind the valid socket
     to = zmq_socket (context, ZMQ_PULL);
     assert (to);
-    rc = zmq_bind (to, "tcp://127.0.0.1:5560");
+    rc = zmq_bind (to, "tcp://*:5560");
     assert (rc == 0);
 
     val = 0;
@@ -117,7 +124,7 @@ int main (void)
 
     // Set the key flag
     val = 1;
-    rc = zmq_setsockopt (from, ZMQ_IMMEDIATE, &val, sizeof(val));
+    rc = zmq_setsockopt (from, ZMQ_DELAY_ATTACH_ON_CONNECT, &val, sizeof(val));
     assert (rc == 0);
 
     // Connect to the invalid socket
@@ -150,7 +157,7 @@ int main (void)
     rc = zmq_close (to);
     assert (rc == 0);
     
-    rc = zmq_ctx_term (context);
+    rc = zmq_term (context);
     assert (rc == 0);
 
     // TEST 3
@@ -170,11 +177,11 @@ int main (void)
     rc = zmq_setsockopt (frontend, ZMQ_LINGER, &zero, sizeof (zero));
     assert (rc == 0);
 
-    //  Frontend connects to backend using IMMEDIATE
+    //  Frontend connects to backend using DELAY_ATTACH_ON_CONNECT
     int on = 1;
-    rc = zmq_setsockopt (frontend, ZMQ_IMMEDIATE, &on, sizeof (on));
+    rc = zmq_setsockopt (frontend, ZMQ_DELAY_ATTACH_ON_CONNECT, &on, sizeof (on));
     assert (rc == 0);
-    rc = zmq_bind (backend, "tcp://127.0.0.1:5560");
+    rc = zmq_bind (backend, "tcp://*:5560");
     assert (rc == 0);
     rc = zmq_connect (frontend, "tcp://localhost:5560");
     assert (rc == 0);
@@ -191,9 +198,11 @@ int main (void)
     
     rc = zmq_close (backend);
     assert (rc == 0);
-
+    
     //  Give time to process disconnect
-    msleep (SETTLE_TIME);
+    //  There's no way to do this except with a sleep
+    struct timespec t = { 0, 250 * 1000000 };
+    nanosleep (&t, NULL);
     
     // Send a message, should fail
     rc = zmq_send (frontend, "Hello", 5, ZMQ_DONTWAIT);
@@ -204,7 +213,7 @@ int main (void)
     assert (backend);
     rc = zmq_setsockopt (backend, ZMQ_LINGER, &zero, sizeof (zero));
     assert (rc == 0);
-    rc = zmq_bind (backend, "tcp://127.0.0.1:5560");
+    rc = zmq_bind (backend, "tcp://*:5560");
     assert (rc == 0);
 
     //  Ping backend to frontend so we know when the connection is up
@@ -223,6 +232,7 @@ int main (void)
     rc = zmq_close (frontend);
     assert (rc == 0);
 
-    rc = zmq_ctx_term (context);
+    rc = zmq_term (context);
     assert (rc == 0);
 }
+

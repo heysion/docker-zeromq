@@ -78,7 +78,9 @@ assert (nbytes != -1);
 
 SEE ALSO
 --------
+linkzmq:zmq_recvmsg[3]
 linkzmq:zmq_send[3]
+linkzmq:zmq_sendmsg[3]
 linkzmq:zmq_getsockopt[3]
 linkzmq:zmq_socket[7]
 linkzmq:zmq[7]
@@ -86,5 +88,6 @@ linkzmq:zmq[7]
 
 AUTHORS
 -------
-This page was written by the 0MQ community. To make a change please
-read the 0MQ Contribution Policy at <http://www.zeromq.org/docs:contributing>.
+This 0MQ manual page was written by Martin Sustrik <sustrik@250bpm.com> and
+Martin Lucina <mato@kotelna.sk>, and Pieter Hintjens <ph@imatix.com>.
+

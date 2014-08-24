@@ -1,5 +1,6 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2010-2011 250bpm s.r.o.
+    Copyright (c) 2010-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -40,8 +41,7 @@ void zmq::poller_base_t::adjust_load (int amount_)
 {
     if (amount_ > 0)
         load.add (amount_);
-    else
-    if (amount_ < 0)
+    else if (amount_ < 0)
         load.sub (-amount_);
 }
 

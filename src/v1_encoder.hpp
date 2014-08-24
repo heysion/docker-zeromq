@@ -1,5 +1,7 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2009-2011 250bpm s.r.o.
+    Copyright (c) 2007-2012 iMatix Corporation
+    Copyright (c) 2007-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -20,25 +22,32 @@
 #ifndef __ZMQ_V1_ENCODER_HPP_INCLUDED__
 #define __ZMQ_V1_ENCODER_HPP_INCLUDED__
 
+#include "msg.hpp"
+#include "i_msg_source.hpp"
 #include "encoder.hpp"
 
 namespace zmq
 {
-    //  Encoder for ZMTP/1.0 protocol. Converts messages into data batches.
+
+    //  Encoder for 0MQ framing protocol. Converts messages into data stream.
 
     class v1_encoder_t : public encoder_base_t <v1_encoder_t>
     {
     public:
 
-        v1_encoder_t (size_t bufsize_);
-        ~v1_encoder_t ();
+        v1_encoder_t (size_t bufsize_, i_msg_source *msg_source_);
+        virtual ~v1_encoder_t ();
+
+        virtual void set_msg_source (i_msg_source *msg_source_);
 
     private:
 
-        void size_ready ();
-        void message_ready ();
+        bool size_ready ();
+        bool message_ready ();
 
-        unsigned char tmpbuf [10];
+        i_msg_source *msg_source;
+        msg_t in_progress;
+        unsigned char tmpbuf [9];
 
         v1_encoder_t (const v1_encoder_t&);
         const v1_encoder_t &operator = (const v1_encoder_t&);

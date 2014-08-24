@@ -1,5 +1,7 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2009-2011 250bpm s.r.o.
+    Copyright (c) 2007-2009 iMatix Corporation
+    Copyright (c) 2007-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -72,7 +74,8 @@ namespace zmq
             }
 
             chunk_t *sc = spare_chunk.xchg (NULL);
-            free (sc);
+            if (sc)
+                free (sc);
         }
 
         //  Returns reference to the front element of the queue.
@@ -155,7 +158,8 @@ namespace zmq
                 //  so for cache reasons we'll get rid of the spare and
                 //  use 'o' as the spare.
                 chunk_t *cs = spare_chunk.xchg (o);
-                free (cs);
+                if (cs)
+                    free (cs);
             }
         }
 

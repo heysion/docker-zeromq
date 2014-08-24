@@ -1,5 +1,8 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2012 iMatix Corporation
+    Copyright (c) 2009-2011 250bpm s.r.o.
+    Copyright (c) 2011 VMware, Inc.
+    Copyright (c) 2007-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -32,14 +35,17 @@ zmq::router_t::router_t (class ctx_t *parent_, uint32_t tid_, int sid_) :
     current_out (NULL),
     more_out (false),
     next_peer_id (generate_random ()),
-    mandatory (false),
-    //  raw_sock functionality in ROUTER is deprecated
-    raw_sock (false),       
-    probe_router (false)
+    mandatory(false)
 {
     options.type = ZMQ_ROUTER;
+
+    //  TODO: Uncomment the following line when ROUTER will become true ROUTER
+    //  rather than generic router socket.
+    //  If peer disconnect there's noone to send reply to anyway. We can drop
+    //  all the outstanding requests from that peer.
+    //  options.delay_on_disconnect = false;
+
     options.recv_identity = true;
-    options.raw_sock = false;
 
     prefetched_id.init ();
     prefetched_msg.init ();
@@ -53,25 +59,12 @@ zmq::router_t::~router_t ()
     prefetched_msg.close ();
 }
 
-void zmq::router_t::xattach_pipe (pipe_t *pipe_, bool subscribe_to_all_)
+void zmq::router_t::xattach_pipe (pipe_t *pipe_, bool icanhasall_)
 {
-    // subscribe_to_all_ is unused
-    (void)subscribe_to_all_;
+    // icanhasall_ is unused
+    (void)icanhasall_;
 
     zmq_assert (pipe_);
-
-    if (probe_router) {
-        msg_t probe_msg_;
-        int rc = probe_msg_.init ();
-        errno_assert (rc == 0);
-
-        rc = pipe_->write (&probe_msg_);
-        // zmq_assert (rc) is not applicable here, since it is not a bug.
-        pipe_->flush ();
-
-        rc = probe_msg_.close ();
-        errno_assert (rc == 0);
-    }
 
     bool identity_ok = identify_peer (pipe_);
     if (identity_ok)
@@ -83,44 +76,19 @@ void zmq::router_t::xattach_pipe (pipe_t *pipe_, bool subscribe_to_all_)
 int zmq::router_t::xsetsockopt (int option_, const void *optval_,
     size_t optvallen_)
 {
-    bool is_int = (optvallen_ == sizeof (int));
-    int value = is_int? *((int *) optval_): 0;
-
-    switch (option_) {
-        case ZMQ_ROUTER_RAW:
-            if (is_int && value >= 0) {
-                raw_sock = (value != 0);
-                if (raw_sock) {
-                    options.recv_identity = false;
-                    options.raw_sock = true;
-                }
-                return 0;
-            }
-            break;
-
-        case ZMQ_ROUTER_MANDATORY:
-            if (is_int && value >= 0) {
-                mandatory = (value != 0);
-                return 0;
-            }
-            break;
-
-        case ZMQ_PROBE_ROUTER:
-            if (is_int && value >= 0) {
-                probe_router = (value != 0);
-                return 0;
-            }
-            break;
-
-        default:
-            break;
+    if (option_ != ZMQ_ROUTER_MANDATORY) {
+        errno = EINVAL;
+        return -1;
     }
-    errno = EINVAL;
-    return -1;
+    if (optvallen_ != sizeof (int) || *static_cast <const int*> (optval_) < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    mandatory = *static_cast <const int*> (optval_);
+    return 0;
 }
 
-
-void zmq::router_t::xpipe_terminated (pipe_t *pipe_)
+void zmq::router_t::xterminated (pipe_t *pipe_)
 {
     std::set <pipe_t*>::iterator it = anonymous_pipes.find (pipe_);
     if (it != anonymous_pipes.end ())
@@ -129,7 +97,7 @@ void zmq::router_t::xpipe_terminated (pipe_t *pipe_)
         outpipes_t::iterator it = outpipes.find (pipe_->get_identity ());
         zmq_assert (it != outpipes.end ());
         outpipes.erase (it);
-        fq.pipe_terminated (pipe_);
+        fq.terminated (pipe_);
         if (pipe_ == current_out)
             current_out = NULL;
     }
@@ -161,8 +129,11 @@ void zmq::router_t::xwrite_activated (pipe_t *pipe_)
     it->second.active = true;
 }
 
-int zmq::router_t::xsend (msg_t *msg_)
+int zmq::router_t::xsend (msg_t *msg_, int flags_)
 {
+    // flags_ is unused
+    (void)flags_;
+
     //  If this is the first part of the message it's the ID of the
     //  peer to send the message to.
     if (!more_out) {
@@ -177,7 +148,7 @@ int zmq::router_t::xsend (msg_t *msg_)
 
             //  Find the pipe associated with the identity stored in the prefix.
             //  If there's no such pipe just silently ignore the message, unless
-            //  router_mandatory is set.
+            //  report_unreachable is set.
             blob_t identity ((unsigned char*) msg_->data (), msg_->size ());
             outpipes_t::iterator it = outpipes.find (identity);
 
@@ -186,14 +157,9 @@ int zmq::router_t::xsend (msg_t *msg_)
                 if (!current_out->check_write ()) {
                     it->second.active = false;
                     current_out = NULL;
-                    if (mandatory) {
-                        more_out = false;
-                        errno = EAGAIN;
-                        return -1;
-                    }
                 }
-            }
-            else
+            } 
+            else 
             if (mandatory) {
                 more_out = false;
                 errno = EHOSTUNREACH;
@@ -208,34 +174,15 @@ int zmq::router_t::xsend (msg_t *msg_)
         return 0;
     }
 
-    //  Ignore the MORE flag for raw-sock or assert?
-    if (options.raw_sock)
-        msg_->reset_flags (msg_t::more);
-
     //  Check whether this is the last part of the message.
     more_out = msg_->flags () & msg_t::more ? true : false;
 
     //  Push the message into the pipe. If there's no out pipe, just drop it.
     if (current_out) {
-
-        // Close the remote connection if user has asked to do so
-        // by sending zero length message.
-        // Pending messages in the pipe will be dropped (on receiving term- ack)
-        if (raw_sock && msg_->size() == 0) {
-            current_out->terminate (false);
-            int rc = msg_->close ();
-            errno_assert (rc == 0);
-            rc = msg_->init ();
-            errno_assert (rc == 0);
-            current_out = NULL;
-            return 0;
-        }
-
         bool ok = current_out->write (msg_);
         if (unlikely (!ok))
             current_out = NULL;
-        else
-        if (!more_out) {
+        else if (!more_out) {
             current_out->flush ();
             current_out = NULL;
         }
@@ -252,8 +199,11 @@ int zmq::router_t::xsend (msg_t *msg_)
     return 0;
 }
 
-int zmq::router_t::xrecv (msg_t *msg_)
+int zmq::router_t::xrecv (msg_t *msg_, int flags_)
 {
+    // flags_ is unused
+    (void)flags_;
+
     if (prefetched) {
         if (!identity_sent) {
             int rc = msg_->move (prefetched_id);
@@ -275,6 +225,7 @@ int zmq::router_t::xrecv (msg_t *msg_)
     //  It's possible that we receive peer's identity. That happens
     //  after reconnection. The current implementation assumes that
     //  the peer always uses the same identity.
+    //  TODO: handle the situation when the peer changes its identity.
     while (rc == 0 && msg_->is_identity ())
         rc = fq.recvpipe (msg_, &pipe);
 
@@ -367,37 +318,28 @@ bool zmq::router_t::identify_peer (pipe_t *pipe_)
 {
     msg_t msg;
     blob_t identity;
-    bool ok;
 
-    if (options.raw_sock) { //  Always assign identity for raw-socket
+    msg.init ();
+    bool ok = pipe_->read (&msg);
+    if (!ok)
+        return false;
+
+    if (msg.size () == 0) {
+        //  Fall back on the auto-generation
         unsigned char buf [5];
         buf [0] = 0;
         put_uint32 (buf + 1, next_peer_id++);
         identity = blob_t (buf, sizeof buf);
+        msg.close ();
     }
     else {
-        msg.init ();
-        ok = pipe_->read (&msg);
-        if (!ok)
+        identity = blob_t ((unsigned char*) msg.data (), msg.size ());
+        outpipes_t::iterator it = outpipes.find (identity);
+        msg.close ();
+
+        //  Ignore peers with duplicate ID.
+        if (it != outpipes.end ())
             return false;
-
-        if (msg.size () == 0) {
-            //  Fall back on the auto-generation
-            unsigned char buf [5];
-            buf [0] = 0;
-            put_uint32 (buf + 1, next_peer_id++);
-            identity = blob_t (buf, sizeof buf);
-            msg.close ();
-        }
-        else {
-            identity = blob_t ((unsigned char*) msg.data (), msg.size ());
-            outpipes_t::iterator it = outpipes.find (identity);
-            msg.close ();
-
-            //  Ignore peers with duplicate ID.
-            if (it != outpipes.end ())
-                return false;
-        }
     }
 
     pipe_->set_identity (identity);
@@ -408,3 +350,15 @@ bool zmq::router_t::identify_peer (pipe_t *pipe_)
 
     return true;
 }
+
+zmq::router_session_t::router_session_t (io_thread_t *io_thread_, bool connect_,
+      socket_base_t *socket_, const options_t &options_,
+      const address_t *addr_) :
+    session_base_t (io_thread_, connect_, socket_, options_, addr_)
+{
+}
+
+zmq::router_session_t::~router_session_t ()
+{
+}
+

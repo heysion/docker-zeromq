@@ -1,5 +1,6 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2010-2011 250bpm s.r.o.
+    Copyright (c) 2010-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -17,59 +18,102 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "testutil.hpp"
+#include "../include/zmq.h"
+#include "../include/zmq_utils.h"
+#include <pthread.h>
+#include <stdio.h>
+#include <string.h>
+
+#undef NDEBUG
+#include <assert.h>
+
+extern "C"
+{
+    void *worker(void *ctx)
+    {
+        //  Worker thread connects after delay of 1 second. Then it waits
+        //  for 1 more second, so that async connect has time to succeed.
+        zmq_sleep (1);
+        void *sc = zmq_socket (ctx, ZMQ_PUSH);
+        assert (sc);
+        int rc = zmq_connect (sc, "inproc://timeout_test");
+        assert (rc == 0);
+        zmq_sleep (1);
+        rc = zmq_close (sc);
+        assert (rc == 0);
+        return NULL;
+    }
+}
 
 int main (void)
 {
-    setup_test_environment();
-    void *ctx = zmq_ctx_new ();
+    fprintf (stderr, "test_timeo running...\n");
+
+    void *ctx = zmq_init (1);
     assert (ctx);
 
-    void *frontend = zmq_socket (ctx, ZMQ_DEALER);
-    assert (frontend);
-    int rc = zmq_bind (frontend, "inproc://timeout_test");
+    //  Create a disconnected socket.
+    void *sb = zmq_socket (ctx, ZMQ_PULL);
+    assert (sb);
+    int rc = zmq_bind (sb, "inproc://timeout_test");
     assert (rc == 0);
 
-    //  Receive on disconnected socket returns immediately
-    char buffer [32];
-    rc = zmq_recv (frontend, buffer, 32, ZMQ_DONTWAIT);
+    //  Check whether non-blocking recv returns immediately.
+    char buf [] = "12345678ABCDEFGH12345678abcdefgh";
+    rc = zmq_recv (sb, buf, 32, ZMQ_DONTWAIT);
     assert (rc == -1);
     assert (zmq_errno() == EAGAIN);
-    
-    //  Check whether receive timeout is honored
-    int timeout = 250;
-    rc = zmq_setsockopt (frontend, ZMQ_RCVTIMEO, &timeout, sizeof (int));
-    assert (rc == 0);
 
-    void* stopwatch = zmq_stopwatch_start();
-    rc = zmq_recv (frontend, buffer, 32, 0);
+    //  Check whether recv timeout is honoured.
+    int timeout = 500;
+    size_t timeout_size = sizeof timeout;
+    rc = zmq_setsockopt(sb, ZMQ_RCVTIMEO, &timeout, timeout_size);
+    assert (rc == 0);    
+    void *watch = zmq_stopwatch_start ();
+    rc = zmq_recv (sb, buf, 32, 0);
     assert (rc == -1);
     assert (zmq_errno () == EAGAIN);
-    unsigned int elapsed = zmq_stopwatch_stop(stopwatch) / 1000;
-    assert (elapsed > 200 && elapsed < 300);
+    unsigned long elapsed = zmq_stopwatch_stop (watch);
+    assert (elapsed > 440000 && elapsed < 550000);
 
-    //  Check that normal message flow works as expected
-    void *backend = zmq_socket (ctx, ZMQ_DEALER);
-    assert (backend);
-    rc = zmq_connect (backend, "inproc://timeout_test");
+    //  Check whether connection during the wait doesn't distort the timeout.
+    timeout = 2000;
+    rc = zmq_setsockopt(sb, ZMQ_RCVTIMEO, &timeout, timeout_size);
     assert (rc == 0);
-    rc = zmq_setsockopt (backend, ZMQ_SNDTIMEO, &timeout, sizeof (int));
+    pthread_t thread;
+    rc = pthread_create (&thread, NULL, worker, ctx);
+    assert (rc == 0);
+    watch = zmq_stopwatch_start ();
+    rc = zmq_recv (sb, buf, 32, 0);
+    assert (rc == -1);
+    assert (zmq_errno () == EAGAIN);
+    elapsed = zmq_stopwatch_stop (watch);
+    assert (elapsed > 1900000 && elapsed < 2100000);
+    rc = pthread_join (thread, NULL);
     assert (rc == 0);
 
-    rc = zmq_send (backend, "Hello", 5, 0);
-    assert (rc == 5);
-    rc = zmq_recv (frontend, buffer, 32, 0);
-    assert (rc == 5);
+    //  Check that timeouts don't break normal message transfer.
+    void *sc = zmq_socket (ctx, ZMQ_PUSH);
+    assert (sc);
+    rc = zmq_setsockopt(sb, ZMQ_RCVTIMEO, &timeout, timeout_size);
+    assert (rc == 0);
+    rc = zmq_setsockopt(sb, ZMQ_SNDTIMEO, &timeout, timeout_size);
+    assert (rc == 0);
+    rc = zmq_connect (sc, "inproc://timeout_test");
+    assert (rc == 0);
+    rc = zmq_send (sc, buf, 32, 0);
+    assert (rc == 32);
+    rc = zmq_recv (sb, buf, 32, 0);
+    assert (rc == 32);
 
-    //  Clean-up
-    rc = zmq_close (backend);
+    //  Clean-up.
+    rc = zmq_close (sc);
     assert (rc == 0);
-    
-    rc = zmq_close (frontend);
+    rc = zmq_close (sb);
     assert (rc == 0);
-    
-    rc = zmq_ctx_term (ctx);
+    rc = zmq_term (ctx);
     assert (rc == 0);
 
     return 0 ;
 }
+

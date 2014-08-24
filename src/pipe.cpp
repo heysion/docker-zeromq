@@ -1,5 +1,8 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2009-2011 250bpm s.r.o.
+    Copyright (c) 2007-2009 iMatix Corporation
+    Copyright (c) 2011 VMware, Inc.
+    Copyright (c) 2007-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -23,37 +26,22 @@
 #include "pipe.hpp"
 #include "err.hpp"
 
-#include "ypipe.hpp"
-#include "ypipe_conflate.hpp"
-
 int zmq::pipepair (class object_t *parents_ [2], class pipe_t* pipes_ [2],
-    int hwms_ [2], bool conflate_ [2])
+    int hwms_ [2], bool delays_ [2])
 {
     //   Creates two pipe objects. These objects are connected by two ypipes,
     //   each to pass messages in one direction.
 
-    typedef ypipe_t      <msg_t, message_pipe_granularity> upipe_normal_t;
-    typedef ypipe_conflate_t <msg_t, message_pipe_granularity> upipe_conflate_t;
-
-    pipe_t::upipe_t *upipe1;
-    if(conflate_ [0])
-        upipe1 = new (std::nothrow) upipe_conflate_t ();
-    else
-        upipe1 = new (std::nothrow) upipe_normal_t ();
+    pipe_t::upipe_t *upipe1 = new (std::nothrow) pipe_t::upipe_t ();
     alloc_assert (upipe1);
-
-    pipe_t::upipe_t *upipe2;
-    if(conflate_ [1])
-        upipe2 = new (std::nothrow) upipe_conflate_t ();
-    else
-        upipe2 = new (std::nothrow) upipe_normal_t ();
+    pipe_t::upipe_t *upipe2 = new (std::nothrow) pipe_t::upipe_t ();
     alloc_assert (upipe2);
 
     pipes_ [0] = new (std::nothrow) pipe_t (parents_ [0], upipe1, upipe2,
-        hwms_ [1], hwms_ [0], conflate_ [0]);
+        hwms_ [1], hwms_ [0], delays_ [0]);
     alloc_assert (pipes_ [0]);
     pipes_ [1] = new (std::nothrow) pipe_t (parents_ [1], upipe2, upipe1,
-        hwms_ [0], hwms_ [1], conflate_ [1]);
+        hwms_ [0], hwms_ [1], delays_ [1]);
     alloc_assert (pipes_ [1]);
 
     pipes_ [0]->set_peer (pipes_ [1]);
@@ -63,7 +51,7 @@ int zmq::pipepair (class object_t *parents_ [2], class pipe_t* pipes_ [2],
 }
 
 zmq::pipe_t::pipe_t (object_t *parent_, upipe_t *inpipe_, upipe_t *outpipe_,
-      int inhwm_, int outhwm_, bool conflate_) :
+      int inhwm_, int outhwm_, bool delay_) :
     object_t (parent_),
     inpipe (inpipe_),
     outpipe (outpipe_),
@@ -77,8 +65,7 @@ zmq::pipe_t::pipe_t (object_t *parent_, upipe_t *inpipe_, upipe_t *outpipe_,
     peer (NULL),
     sink (NULL),
     state (active),
-    delay (true),
-    conflate (conflate_)
+    delay (delay_)
 {
 }
 
@@ -112,9 +99,7 @@ zmq::blob_t zmq::pipe_t::get_identity ()
 
 bool zmq::pipe_t::check_read ()
 {
-    if (unlikely (!in_active))
-        return false;
-    if (unlikely (state != active && state != waiting_for_delimiter))
+    if (unlikely (!in_active || (state != active && state != pending)))
         return false;
 
     //  Check if there's an item in the pipe.
@@ -129,7 +114,7 @@ bool zmq::pipe_t::check_read ()
         msg_t msg;
         bool ok = inpipe->read (&msg);
         zmq_assert (ok);
-        process_delimiter ();
+        delimit ();
         return false;
     }
 
@@ -138,9 +123,7 @@ bool zmq::pipe_t::check_read ()
 
 bool zmq::pipe_t::read (msg_t *msg_)
 {
-    if (unlikely (!in_active))
-        return false;
-    if (unlikely (state != active && state != waiting_for_delimiter))
+    if (unlikely (!in_active || (state != active && state != pending)))
         return false;
 
     if (!inpipe->read (msg_)) {
@@ -150,7 +133,7 @@ bool zmq::pipe_t::read (msg_t *msg_)
 
     //  If delimiter was read, start termination process of the pipe.
     if (msg_->is_delimiter ()) {
-        process_delimiter ();
+        delimit ();
         return false;
     }
 
@@ -196,18 +179,18 @@ void zmq::pipe_t::rollback ()
     //  Remove incomplete message from the outbound pipe.
     msg_t msg;
     if (outpipe) {
-        while (outpipe->unwrite (&msg)) {
-            zmq_assert (msg.flags () & msg_t::more);
-            int rc = msg.close ();
-            errno_assert (rc == 0);
-        }
+		while (outpipe->unwrite (&msg)) {
+		    zmq_assert (msg.flags () & msg_t::more);
+		    int rc = msg.close ();
+		    errno_assert (rc == 0);
+		}
     }
 }
 
 void zmq::pipe_t::flush ()
 {
     //  The peer does not exist anymore at this point.
-    if (state == term_ack_sent)
+    if (state == terminating)
         return;
 
     if (outpipe && !outpipe->flush ())
@@ -216,7 +199,7 @@ void zmq::pipe_t::flush ()
 
 void zmq::pipe_t::process_activate_read ()
 {
-    if (!in_active && (state == active || state == waiting_for_delimiter)) {
+    if (!in_active && (state == active || state == pending)) {
         in_active = true;
         sink->read_activated (this);
     }
@@ -260,24 +243,24 @@ void zmq::pipe_t::process_pipe_term ()
 {
     //  This is the simple case of peer-induced termination. If there are no
     //  more pending messages to read, or if the pipe was configured to drop
-    //  pending messages, we can move directly to the term_ack_sent state.
-    //  Otherwise we'll hang up in waiting_for_delimiter state till all
-    //  pending messages are read.
+    //  pending messages, we can move directly to the terminating state.
+    //  Otherwise we'll hang up in pending state till all the pending messages
+    //  are sent.
     if (state == active) {
         if (!delay) {
-            state = term_ack_sent;
+            state = terminating;
             outpipe = NULL;
             send_pipe_term_ack (peer);
         }
         else
-            state = waiting_for_delimiter;
+            state = pending;
         return;
     }
 
     //  Delimiter happened to arrive before the term command. Now we have the
-    //  term command as well, so we can move straight to term_ack_sent state.
-    if (state == delimiter_received) {
-        state = term_ack_sent;
+    //  term command as well, so we can move straight to terminating state.
+    if (state == delimited) {
+        state = terminating;
         outpipe = NULL;
         send_pipe_term_ack (peer);
         return;
@@ -286,8 +269,8 @@ void zmq::pipe_t::process_pipe_term ()
     //  This is the case where both ends of the pipe are closed in parallel.
     //  We simply reply to the request by ack and continue waiting for our
     //  own ack.
-    if (state == term_req_sent1) {
-        state = term_req_sent2;
+    if (state == terminated) {
+        state = double_terminated;
         outpipe = NULL;
         send_pipe_term_ack (peer);
         return;
@@ -301,42 +284,33 @@ void zmq::pipe_t::process_pipe_term_ack ()
 {
     //  Notify the user that all the references to the pipe should be dropped.
     zmq_assert (sink);
-    sink->pipe_terminated (this);
+    sink->terminated (this);
 
-    //  In term_ack_sent and term_req_sent2 states there's nothing to do.
-    //  Simply deallocate the pipe. In term_req_sent1 state we have to ack
-    //  the peer before deallocating this side of the pipe.
-    //  All the other states are invalid.
-    if (state == term_req_sent1) {
+    //  In terminating and double_terminated states there's nothing to do.
+    //  Simply deallocate the pipe. In terminated state we have to ack the
+    //  peer before deallocating this side of the pipe. All the other states
+    //  are invalid.
+    if (state == terminated) {
         outpipe = NULL;
         send_pipe_term_ack (peer);
     }
     else
-        zmq_assert (state == term_ack_sent || state == term_req_sent2);
+        zmq_assert (state == terminating || state == double_terminated);
 
     //  We'll deallocate the inbound pipe, the peer will deallocate the outbound
     //  pipe (which is an inbound pipe from its point of view).
     //  First, delete all the unread messages in the pipe. We have to do it by
     //  hand because msg_t doesn't have automatic destructor. Then deallocate
     //  the ypipe itself.
-
-    if (!conflate) {
-        msg_t msg;
-        while (inpipe->read (&msg)) {
-            int rc = msg.close ();
-            errno_assert (rc == 0);
-        }
+    msg_t msg;
+    while (inpipe->read (&msg)) {
+       int rc = msg.close ();
+       errno_assert (rc == 0);
     }
-
     delete inpipe;
 
     //  Deallocate the pipe object
     delete this;
-}
-
-void zmq::pipe_t::set_nodelay ()
-{
-    this->delay = false;
 }
 
 void zmq::pipe_t::terminate (bool delay_)
@@ -345,44 +319,39 @@ void zmq::pipe_t::terminate (bool delay_)
     delay = delay_;
 
     //  If terminate was already called, we can ignore the duplicit invocation.
-    if (state == term_req_sent1 || state == term_req_sent2)
+    if (state == terminated || state == double_terminated)
         return;
 
     //  If the pipe is in the final phase of async termination, it's going to
     //  closed anyway. No need to do anything special here.
-    else
-    if (state == term_ack_sent)
+    else if (state == terminating)
         return;
 
     //  The simple sync termination case. Ask the peer to terminate and wait
     //  for the ack.
-    else
-    if (state == active) {
+    else if (state == active) {
         send_pipe_term (peer);
-        state = term_req_sent1;
+        state = terminated;
     }
 
     //  There are still pending messages available, but the user calls
     //  'terminate'. We can act as if all the pending messages were read.
-    else
-    if (state == waiting_for_delimiter && !delay) {
+    else if (state == pending && !delay) {
         outpipe = NULL;
         send_pipe_term_ack (peer);
-        state = term_ack_sent;
+        state = terminating;
     }
 
     //  If there are pending messages still availabe, do nothing.
-    else
-    if (state == waiting_for_delimiter) {
+    else if (state == pending) {
     }
 
     //  We've already got delimiter, but not term command yet. We can ignore
     //  the delimiter and ack synchronously terminate as if we were in
     //  active state.
-    else
-    if (state == delimiter_received) {
+    else if (state == delimited) {
         send_pipe_term (peer);
-        state = term_req_sent1;
+        state = terminated;
     }
 
     //  There are no other states.
@@ -394,15 +363,15 @@ void zmq::pipe_t::terminate (bool delay_)
 
     if (outpipe) {
 
-        //  Drop any unfinished outbound messages.
-        rollback ();
+		//  Drop any unfinished outbound messages.
+		rollback ();
 
-        //  Write the delimiter into the pipe. Note that watermarks are not
-        //  checked; thus the delimiter can be written even when the pipe is full.
-        msg_t msg;
-        msg.init_delimiter ();
-        outpipe->write (msg, false);
-        flush ();
+		//  Write the delimiter into the pipe. Note that watermarks are not
+		//  checked; thus the delimiter can be written even when the pipe is full.
+		msg_t msg;
+		msg.init_delimiter ();
+		outpipe->write (msg, false);
+		flush ();
     }
 }
 
@@ -439,18 +408,22 @@ int zmq::pipe_t::compute_lwm (int hwm_)
     return result;
 }
 
-void zmq::pipe_t::process_delimiter ()
+void zmq::pipe_t::delimit ()
 {
-    zmq_assert (state == active
-            ||  state == waiting_for_delimiter);
+    if (state == active) {
+        state = delimited;
+        return;
+    }
 
-    if (state == active)
-        state = delimiter_received;
-    else {
+    if (state == pending) {
         outpipe = NULL;
         send_pipe_term_ack (peer);
-        state = term_ack_sent;
+        state = terminating;
+        return;
     }
+
+    //  Delimiter in any other state is invalid.
+    zmq_assert (false);
 }
 
 void zmq::pipe_t::hiccup ()
@@ -464,13 +437,7 @@ void zmq::pipe_t::hiccup ()
     inpipe = NULL;
 
     //  Create new inpipe.
-    if (conflate)
-        inpipe = new (std::nothrow)
-            ypipe_conflate_t <msg_t, message_pipe_granularity> ();
-    else
-        inpipe = new (std::nothrow)
-            ypipe_t <msg_t, message_pipe_granularity> ();
-
+    inpipe = new (std::nothrow) pipe_t::upipe_t ();
     alloc_assert (inpipe);
     in_active = true;
 
@@ -478,8 +445,3 @@ void zmq::pipe_t::hiccup ()
     send_hiccup (peer, (void*) inpipe);
 }
 
-void zmq::pipe_t::set_hwms (int inhwm_, int outhwm_)
-{
-    lwm = compute_lwm (inhwm_);
-    hwm = outhwm_;
-}

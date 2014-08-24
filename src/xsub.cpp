@@ -1,5 +1,7 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2010-2011 250bpm s.r.o.
+    Copyright (c) 2011 VMware, Inc.
+    Copyright (c) 2010-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -43,10 +45,10 @@ zmq::xsub_t::~xsub_t ()
     errno_assert (rc == 0);
 }
 
-void zmq::xsub_t::xattach_pipe (pipe_t *pipe_, bool subscribe_to_all_)
+void zmq::xsub_t::xattach_pipe (pipe_t *pipe_, bool icanhasall_)
 {
-    // subscribe_to_all_ is unused
-    (void) subscribe_to_all_;
+    // icanhasall_ is unused
+    (void)icanhasall_;
 
     zmq_assert (pipe_);
     fq.attach (pipe_);
@@ -67,10 +69,10 @@ void zmq::xsub_t::xwrite_activated (pipe_t *pipe_)
     dist.activated (pipe_);
 }
 
-void zmq::xsub_t::xpipe_terminated (pipe_t *pipe_)
+void zmq::xsub_t::xterminated (pipe_t *pipe_)
 {
-    fq.pipe_terminated (pipe_);
-    dist.pipe_terminated (pipe_);
+    fq.terminated (pipe_);
+    dist.terminated (pipe_);
 }
 
 void zmq::xsub_t::xhiccuped (pipe_t *pipe_)
@@ -80,29 +82,30 @@ void zmq::xsub_t::xhiccuped (pipe_t *pipe_)
     pipe_->flush ();
 }
 
-int zmq::xsub_t::xsend (msg_t *msg_)
+int zmq::xsub_t::xsend (msg_t *msg_, int flags_)
 {
     size_t size = msg_->size ();
-    unsigned char *data = (unsigned char *) msg_->data ();
+    unsigned char *data = (unsigned char*) msg_->data ();
 
-    if (size > 0 && *data == 1) {
-        //  Process subscribe message
-        //  This used to filter out duplicate subscriptions,
-        //  however this is alread done on the XPUB side and
-        //  doing it here as well breaks ZMQ_XPUB_VERBOSE
-        //  when there are forwarding devices involved.
+    // Malformed subscriptions.
+    if (size < 1 || (*data != 0 && *data != 1)) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    // Process the subscription.
+    if (*data == 1) {
+	// this used to filter out duplicate subscriptions,
+	// however this is alread done on the XPUB side and
+	// doing it here as well breaks ZMQ_XPUB_VERBOSE
+	// when there are forwarding devices involved
         subscriptions.add (data + 1, size - 1);
-        return dist.send_to_all (msg_);
+        return dist.send_to_all (msg_, flags_);
     }
-    else 
-    if (size > 0 && *data == 0) {
-        //  Process unsubscribe message
+    else {
         if (subscriptions.rm (data + 1, size - 1))
-            return dist.send_to_all (msg_);
+            return dist.send_to_all (msg_, flags_);
     }
-    else 
-        //  User message sent upstream to XPUB socket
-        return dist.send_to_all (msg_);
 
     int rc = msg_->close ();
     errno_assert (rc == 0);
@@ -118,8 +121,11 @@ bool zmq::xsub_t::xhas_out ()
     return true;
 }
 
-int zmq::xsub_t::xrecv (msg_t *msg_)
+int zmq::xsub_t::xrecv (msg_t *msg_, int flags_)
 {
+    // flags_ is unused
+    (void)flags_;
+
     //  If there's already a message prepared by a previous call to zmq_poll,
     //  return it straight ahead.
     if (has_message) {
@@ -226,3 +232,15 @@ void zmq::xsub_t::send_subscription (unsigned char *data_, size_t size_,
     if (!sent)
         msg.close ();
 }
+
+zmq::xsub_session_t::xsub_session_t (io_thread_t *io_thread_, bool connect_,
+      socket_base_t *socket_, const options_t &options_,
+      const address_t *addr_) :
+    session_base_t (io_thread_, connect_, socket_, options_, addr_)
+{
+}
+
+zmq::xsub_session_t::~xsub_session_t ()
+{
+}
+

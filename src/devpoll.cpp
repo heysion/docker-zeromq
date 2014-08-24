@@ -1,5 +1,7 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2009-2011 250bpm s.r.o.
+    Copyright (c) 2007-2009 iMatix Corporation
+    Copyright (c) 2007-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -131,11 +133,6 @@ void zmq::devpoll_t::start ()
 void zmq::devpoll_t::stop ()
 {
     stopping = true;
-}
-
-int zmq::devpoll_t::max_fds ()
-{
-    return -1;
 }
 
 void zmq::devpoll_t::loop ()

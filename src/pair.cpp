@@ -1,5 +1,7 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2009-2011 250bpm s.r.o.
+    Copyright (c) 2007-2009 iMatix Corporation
+    Copyright (c) 2007-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -34,10 +36,10 @@ zmq::pair_t::~pair_t ()
     zmq_assert (!pipe);
 }
 
-void zmq::pair_t::xattach_pipe (pipe_t *pipe_, bool subscribe_to_all_)
+void zmq::pair_t::xattach_pipe (pipe_t *pipe_, bool icanhasall_)
 {
-    // subscribe_to_all_ is unused
-    (void)subscribe_to_all_;
+    // icanhasall_ is unused
+    (void)icanhasall_;
 
     zmq_assert (pipe_ != NULL);
 
@@ -49,7 +51,7 @@ void zmq::pair_t::xattach_pipe (pipe_t *pipe_, bool subscribe_to_all_)
         pipe_->terminate (false);
 }
 
-void zmq::pair_t::xpipe_terminated (pipe_t *pipe_)
+void zmq::pair_t::xterminated (pipe_t *pipe_)
 {
     if (pipe_ == pipe)
         pipe = NULL;
@@ -67,14 +69,14 @@ void zmq::pair_t::xwrite_activated (pipe_t *)
     //  There's nothing to do here.
 }
 
-int zmq::pair_t::xsend (msg_t *msg_)
+int zmq::pair_t::xsend (msg_t *msg_, int flags_)
 {
     if (!pipe || !pipe->write (msg_)) {
         errno = EAGAIN;
         return -1;
     }
 
-    if (!(msg_->flags () & msg_t::more))
+    if (!(flags_ & ZMQ_SNDMORE))
         pipe->flush ();
 
     //  Detach the original message from the data buffer.
@@ -84,8 +86,11 @@ int zmq::pair_t::xsend (msg_t *msg_)
     return 0;
 }
 
-int zmq::pair_t::xrecv (msg_t *msg_)
+int zmq::pair_t::xrecv (msg_t *msg_, int flags_)
 {
+    // flags_ is unused
+    (void)flags_;
+
     //  Deallocate old content of the message.
     int rc = msg_->close ();
     errno_assert (rc == 0);
@@ -117,3 +122,15 @@ bool zmq::pair_t::xhas_out ()
 
     return pipe->check_write ();
 }
+
+zmq::pair_session_t::pair_session_t (io_thread_t *io_thread_, bool connect_,
+      socket_base_t *socket_, const options_t &options_,
+      const address_t *addr_) :
+    session_base_t (io_thread_, connect_, socket_, options_, addr_)
+{
+}
+
+zmq::pair_session_t::~pair_session_t ()
+{
+}
+

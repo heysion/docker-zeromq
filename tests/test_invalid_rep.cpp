@@ -1,5 +1,7 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2010-2011 250bpm s.r.o.
+    Copyright (c) 2011 VMware, Inc.
+    Copyright (c) 2010-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -17,21 +19,23 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "testutil.hpp"
+#include "../include/zmq.h"
+#include <stdio.h>
+
+#undef NDEBUG
+#include <assert.h>
 
 int main (void)
 {
-    setup_test_environment();
+    fprintf (stderr, "test_invalid_rep running...\n");
+
     //  Create REQ/ROUTER wiring.
-    void *ctx = zmq_ctx_new ();
+    void *ctx = zmq_init (1);
     assert (ctx);
-    
     void *router_socket = zmq_socket (ctx, ZMQ_ROUTER);
     assert (router_socket);
-    
     void *req_socket = zmq_socket (ctx, ZMQ_REQ);
     assert (req_socket);
-    
     int linger = 0;
     int rc = zmq_setsockopt (router_socket, ZMQ_LINGER, &linger, sizeof (int));
     assert (rc == 0);
@@ -73,14 +77,14 @@ int main (void)
     //  Check whether we've got the valid reply.
     rc = zmq_recv (req_socket, body, sizeof (body), 0);
     assert (rc == 1);
-    assert (body [0] == 'b');
+	assert (body [0] == 'b');
 
     //  Tear down the wiring.
     rc = zmq_close (router_socket);
     assert (rc == 0);
     rc = zmq_close (req_socket);
     assert (rc == 0);
-    rc = zmq_ctx_term (ctx);
+    rc = zmq_term (ctx);
     assert (rc == 0);
 
     return 0;

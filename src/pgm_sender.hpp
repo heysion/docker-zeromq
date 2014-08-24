@@ -1,5 +1,8 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2009-2011 250bpm s.r.o.
+    Copyright (c) 2007-2009 iMatix Corporation
+    Copyright (c) 2010-2011 Miru Limited
+    Copyright (c) 2007-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -33,8 +36,7 @@
 #include "i_engine.hpp"
 #include "options.hpp"
 #include "pgm_socket.hpp"
-#include "v1_encoder.hpp"
-#include "msg.hpp"
+#include "encoder.hpp"
 
 namespace zmq
 {
@@ -56,9 +58,8 @@ namespace zmq
         void plug (zmq::io_thread_t *io_thread_,
             zmq::session_base_t *session_);
         void terminate ();
-        void restart_input ();
-        void restart_output ();
-        void zap_msg_available () {}
+        void activate_in ();
+        void activate_out ();
 
         //  i_poll_events interface implementation.
         void in_event ();
@@ -77,15 +78,8 @@ namespace zmq
         bool has_tx_timer;
         bool has_rx_timer;
 
-        session_base_t *session;
-
         //  Message encoder.
-        v1_encoder_t encoder;
-
-        msg_t msg;
-
-        //  Keeps track of message boundaries.
-        bool more_flag;
+        encoder_t encoder;
 
         //  PGM socket.
         pgm_socket_t pgm_socket;

@@ -1,5 +1,7 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2009-2011 250bpm s.r.o.
+    Copyright (c) 2007-2009 iMatix Corporation
+    Copyright (c) 2007-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -25,7 +27,6 @@
 #if defined ZMQ_USE_KQUEUE
 
 #include <vector>
-#include <unistd.h>
 
 #include "fd.hpp"
 #include "thread.hpp"
@@ -57,8 +58,6 @@ namespace zmq
         void reset_pollout (handle_t handle_);
         void start ();
         void stop ();
-
-        static int max_fds ();
 
     private:
 
@@ -97,11 +96,6 @@ namespace zmq
 
         kqueue_t (const kqueue_t&);
         const kqueue_t &operator = (const kqueue_t&);
-
-#ifdef HAVE_FORK
-        // the process that created this context. Used to detect forking.
-        pid_t pid;
-#endif
     };
 
     typedef kqueue_t poller_t;

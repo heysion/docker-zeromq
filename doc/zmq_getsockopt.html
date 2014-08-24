@@ -3,7 +3,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
 <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
-<meta name="generator" content="AsciiDoc 8.6.6" />
+<meta name="generator" content="AsciiDoc 8.6.7" />
 <title>zmq_getsockopt(3)</title>
 <style type="text/css">
 /* Shared CSS for AsciiDoc xhtml11 and html5 backends */
@@ -349,7 +349,7 @@ div.colist td img {
   margin-bottom: 0.1em;
 }
 
-div.toclevel1, div.toclevel2, div.toclevel3, div.toclevel4 {
+div.toclevel0, div.toclevel1, div.toclevel2, div.toclevel3, div.toclevel4 {
   margin-top: 0;
   margin-bottom: 0;
 }
@@ -407,6 +407,8 @@ span.underline { text-decoration: underline; }
 span.overline { text-decoration: overline; }
 span.line-through { text-decoration: line-through; }
 
+div.unbreakable { page-break-inside: avoid; }
+
 
 /*
  * xhtml11 specific
@@ -414,7 +416,7 @@ span.line-through { text-decoration: line-through; }
  * */
 
 tt {
-  font-family: monospace;
+  font-family: "Courier New", Courier, monospace;
   font-size: inherit;
   color: navy;
 }
@@ -453,7 +455,7 @@ div.tableblock > table[frame="vsides"] {
  * */
 
 .monospaced {
-  font-family: monospace;
+  font-family: "Courier New", Courier, monospace;
   font-size: inherit;
   color: navy;
 }
@@ -581,7 +583,7 @@ toc: function (toclevels) {
 
   function tocEntries(el, toclevels) {
     var result = new Array;
-    var re = new RegExp('[hH]([2-'+(toclevels+1)+'])');
+    var re = new RegExp('[hH]([1-'+(toclevels+1)+'])');
     // Function that scans the DOM tree for header elements (the DOM2
     // nodeIterator API would be a better technique but not supported by all
     // browsers).
@@ -610,7 +612,7 @@ toc: function (toclevels) {
   var i;
   for (i = 0; i < toc.childNodes.length; i++) {
     var entry = toc.childNodes[i];
-    if (entry.nodeName == 'div'
+    if (entry.nodeName.toLowerCase() == 'div'
      && entry.getAttribute("class")
      && entry.getAttribute("class").match(/^toclevel/))
       tocEntriesToRemove.push(entry);
@@ -656,7 +658,7 @@ footnotes: function () {
   var entriesToRemove = [];
   for (i = 0; i < noteholder.childNodes.length; i++) {
     var entry = noteholder.childNodes[i];
-    if (entry.nodeName == 'div' && entry.getAttribute("class") == "footnote")
+    if (entry.nodeName.toLowerCase() == 'div' && entry.getAttribute("class") == "footnote")
       entriesToRemove.push(entry);
   }
   for (i = 0; i < entriesToRemove.length; i++) {
@@ -874,8 +876,7 @@ all
 <div class="paragraph"><p>The <em>ZMQ_SNDHWM</em> option shall return the high water mark for outbound messages
 on the specified <em>socket</em>. The high water mark is a hard limit on the maximum
 number of outstanding messages ØMQ shall queue in memory for any single peer
-that the specified <em>socket</em> is communicating with. A value of zero means no
-limit.</p></div>
+that the specified <em>socket</em> is communicating with.</p></div>
 <div class="paragraph"><p>If this limit has been reached the socket shall enter an exceptional state and
 depending on the socket type, ØMQ shall take appropriate action such as
 blocking or dropping sent messages. Refer to the individual socket descriptions
@@ -933,8 +934,7 @@ all
 <div class="paragraph"><p>The <em>ZMQ_RCVHWM</em> option shall return the high water mark for inbound messages on
 the specified <em>socket</em>. The high water mark is a hard limit on the maximum
 number of outstanding messages ØMQ shall queue in memory for any single peer
-that the specified <em>socket</em> is communicating with. A value of zero means no
-limit.</p></div>
+that the specified <em>socket</em> is communicating with.</p></div>
 <div class="paragraph"><p>If this limit has been reached the socket shall enter an exceptional state and
 depending on the socket type, ØMQ shall take appropriate action such as
 blocking or dropping sent messages. Refer to the individual socket descriptions
@@ -1048,7 +1048,7 @@ N/A
 </table></div>
 </div>
 <div class="sect2">
-<h3 id="_zmq_identity_retrieve_socket_identity">ZMQ_IDENTITY: Retrieve socket identity</h3>
+<h3 id="_zmq_identity_set_socket_identity">ZMQ_IDENTITY: Set socket identity</h3>
 <div class="paragraph"><p>The <em>ZMQ_IDENTITY</em> option shall retrieve the identity of the specified <em>socket</em>.
 Socket identity is used only by request/reply pattern. Namely, it can be used
 in tandem with ROUTER socket to route messages to the peer with specific
@@ -1096,7 +1096,7 @@ Applicable socket types
 </td>
 <td class="hdlist2">
 <p style="margin-top: 0;">
-ZMQ_REP, ZMQ_REQ, ZMQ_ROUTER, ZMQ_DEALER.
+all
 </p>
 </td>
 </tr>
@@ -1783,62 +1783,11 @@ all
 </table></div>
 </div>
 <div class="sect2">
-<h3 id="_zmq_ipv6_retrieve_ipv6_socket_status">ZMQ_IPV6: Retrieve IPv6 socket status</h3>
-<div class="paragraph"><p>Retrieve the IPv6 option for the socket. A value of <tt>1</tt> means IPv6 is
-enabled on the socket, while <tt>0</tt> means the socket will use only IPv4.
-When IPv6 is enabled the socket will connect to, or accept connections
-from, both IPv4 and IPv6 hosts.</p></div>
-<div class="hdlist"><table>
-<tr>
-<td class="hdlist1">
-Option value type
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-int
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Option value unit
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-boolean
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Default value
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-0 (false)
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Applicable socket types
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-all, when using TCP transports.
-</p>
-</td>
-</tr>
-</table></div>
-</div>
-<div class="sect2">
 <h3 id="_zmq_ipv4only_retrieve_ipv4_only_socket_override_status">ZMQ_IPV4ONLY: Retrieve IPv4-only socket override status</h3>
-<div class="paragraph"><p>Retrieve the IPv4-only option for the socket. This option is deprecated.
-Please use the ZMQ_IPV6 option.</p></div>
+<div class="paragraph"><p>Retrieve the underlying native socket type.  A value of <tt>1</tt> will use IPv4
+sockets, while the value of <tt>0</tt> will use IPv6 sockets. An IPv6 socket
+lets applications connect to and accept connections from both IPv4 and IPv6
+hosts.</p></div>
 <div class="hdlist"><table>
 <tr>
 <td class="hdlist1">
@@ -1887,7 +1836,7 @@ all, when using TCP transports.
 </table></div>
 </div>
 <div class="sect2">
-<h3 id="_zmq_immediate_retrieve_attach_on_connect_value">ZMQ_IMMEDIATE: Retrieve attach-on-connect value</h3>
+<h3 id="_zmq_delay_attach_on_connect_retrieve_attach_on_connect_value">ZMQ_DELAY_ATTACH_ON_CONNECT: Retrieve attach-on-connect value</h3>
 <div class="paragraph"><p>Retrieve the state of the attach on connect value. If set to <tt>1</tt>, will delay the
 attachment of a pipe on connect until the underlying connection has completed.
 This will cause the socket to block if there are no other connections, but will
@@ -2117,7 +2066,7 @@ Option value type
 </td>
 <td class="hdlist2">
 <p style="margin-top: 0;">
-NULL-terminated character string
+character string
 </p>
 </td>
 </tr>
@@ -2209,9 +2158,8 @@ all, when using TCP transports.
 </div>
 <div class="sect2">
 <h3 id="_zmq_tcp_keepalive_idle_override_tcp_keepcnt_or_tcp_keepalive_on_some_os">ZMQ_TCP_KEEPALIVE_IDLE: Override TCP_KEEPCNT(or TCP_KEEPALIVE on some OS)</h3>
-<div class="paragraph"><p>Override <em>TCP_KEEPCNT</em>(or <em>TCP_KEEPALIVE</em> on some OS) socket option (where
-supported by OS). The default value of <tt>-1</tt> means to skip any overrides and
-leave it to OS default.</p></div>
+<div class="paragraph"><p>Override <em>TCP_KEEPCNT</em>(or <em>TCP_KEEPALIVE</em> on some OS) socket option(where supported by OS).
+The default value of <tt>-1</tt> means to skip any overrides and leave it to OS default.</p></div>
 <div class="hdlist"><table>
 <tr>
 <td class="hdlist1">
@@ -2361,423 +2309,6 @@ all, when using TCP transports.
 </tr>
 </table></div>
 </div>
-<div class="sect2">
-<h3 id="_zmq_mechanism_retrieve_current_security_mechanism">ZMQ_MECHANISM: Retrieve current security mechanism</h3>
-<div class="paragraph"><p>The <em>ZMQ_MECHANISM</em> option shall retrieve the current security mechanism
-for the socket.</p></div>
-<div class="hdlist"><table>
-<tr>
-<td class="hdlist1">
-Option value type
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-int
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Option value unit
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-ZMQ_NULL, ZMQ_PLAIN, or ZMQ_CURVE
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Default value
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-ZMQ_NULL
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Applicable socket types
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-all, when using TCP or IPC transports
-</p>
-</td>
-</tr>
-</table></div>
-</div>
-<div class="sect2">
-<h3 id="_zmq_plain_server_retrieve_current_plain_server_role">ZMQ_PLAIN_SERVER: Retrieve current PLAIN server role</h3>
-<div class="paragraph"><p>Returns the <em>ZMQ_PLAIN_SERVER</em> option, if any, previously set on the socket.</p></div>
-<div class="hdlist"><table>
-<tr>
-<td class="hdlist1">
-Option value type
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-int
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Option value unit
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-0, 1
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Default value
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-int
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Applicable socket types
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-all, when using TCP or IPC transports
-</p>
-</td>
-</tr>
-</table></div>
-</div>
-<div class="sect2">
-<h3 id="_zmq_plain_username_retrieve_current_plain_username">ZMQ_PLAIN_USERNAME: Retrieve current PLAIN username</h3>
-<div class="paragraph"><p>The <em>ZMQ_PLAIN_USERNAME</em> option shall retrieve the last username set for
-the PLAIN security mechanism. The returned value shall be a NULL-terminated
-string and MAY be empty. The returned size SHALL include the terminating
-null byte.</p></div>
-<div class="hdlist"><table>
-<tr>
-<td class="hdlist1">
-Option value type
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-NULL-terminated character string
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Option value unit
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-N/A
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Default value
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-null string
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Applicable socket types
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-all, when using TCP or IPC transports
-</p>
-</td>
-</tr>
-</table></div>
-</div>
-<div class="sect2">
-<h3 id="_zmq_plain_password_retrieve_current_password">ZMQ_PLAIN_PASSWORD: Retrieve current password</h3>
-<div class="paragraph"><p>The <em>ZMQ_PLAIN_PASSWORD</em> option shall retrieve the last password set for
-the PLAIN security mechanism. The returned value shall be a NULL-terminated
-string and MAY be empty. The returned size SHALL include the terminating
-null byte.</p></div>
-<div class="hdlist"><table>
-<tr>
-<td class="hdlist1">
-Option value type
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-NULL-terminated character string
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Option value unit
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-N/A
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Default value
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-null string
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Applicable socket types
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-all, when using TCP or IPC transports
-</p>
-</td>
-</tr>
-</table></div>
-</div>
-<div class="sect2">
-<h3 id="_zmq_curve_publickey_retrieve_current_curve_public_key">ZMQ_CURVE_PUBLICKEY: Retrieve current CURVE public key</h3>
-<div class="paragraph"><p>Retrieves the current long term public key for the socket. You can
-provide either a 32 byte buffer, to retrieve the binary key value, or
-a 41 byte buffer, to retrieve the key in a printable Z85 format.
-NOTE: to fetch a printable key, the buffer must be 41 bytes large
-to hold the 40-char key value and one null byte.</p></div>
-<div class="hdlist"><table>
-<tr>
-<td class="hdlist1">
-Option value type
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-binary data or Z85 text string
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Option value size
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-32 or 41
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Default value
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-null
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Applicable socket types
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-all, when using TCP transport
-</p>
-</td>
-</tr>
-</table></div>
-</div>
-<div class="sect2">
-<h3 id="_zmq_curve_secretkey_retrieve_current_curve_secret_key">ZMQ_CURVE_SECRETKEY: Retrieve current CURVE secret key</h3>
-<div class="paragraph"><p>Retrieves the current long term secret key for the socket. You can
-provide either a 32 byte buffer, to retrieve the binary key value, or
-a 41 byte buffer, to retrieve the key in a printable Z85 format.</p></div>
-<div class="hdlist"><table>
-<tr>
-<td class="hdlist1">
-Option value type
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-binary data or Z85 text string
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Option value size
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-32 or 41
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Default value
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-null
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Applicable socket types
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-all, when using TCP transport
-</p>
-</td>
-</tr>
-</table></div>
-</div>
-<div class="sect2">
-<h3 id="_zmq_curve_serverkey_retrieve_current_curve_server_key">ZMQ_CURVE_SERVERKEY: Retrieve current CURVE server key</h3>
-<div class="paragraph"><p>Retrieves the current server key for the client socket. You can
-provide either a 32 byte buffer, to retrieve the binary key value, or
-a 40 byte buffer, to retrieve the key in a printable Z85 format.</p></div>
-<div class="hdlist"><table>
-<tr>
-<td class="hdlist1">
-Option value type
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-binary data or Z85 text string
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Option value size
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-32 or 41
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Default value
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-null
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Applicable socket types
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-all, when using TCP transport
-</p>
-</td>
-</tr>
-</table></div>
-</div>
-<div class="sect2">
-<h3 id="_zmq_zap_domain_retrieve_rfc_27_authentication_domain">ZMQ_ZAP_DOMAIN: Retrieve RFC 27 authentication domain</h3>
-<div class="paragraph"><p>The <em>ZMQ_ZAP_DOMAIN</em> option shall retrieve the last ZAP domain set for
-the socket. The returned value shall be a NULL-terminated string and MAY
-be empty. The returned size SHALL include the terminating null byte.</p></div>
-<div class="hdlist"><table>
-<tr>
-<td class="hdlist1">
-Option value type
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-character string
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Option value unit
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-N/A
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Default value
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-not set
-</p>
-</td>
-</tr>
-<tr>
-<td class="hdlist1">
-Applicable socket types
-<br />
-</td>
-<td class="hdlist2">
-<p style="margin-top: 0;">
-all, when using TCP transport
-</p>
-</td>
-</tr>
-</table></div>
-</div>
 </div>
 </div>
 <div class="sect1">
@@ -2854,16 +2385,16 @@ assert (rc == 0);</tt></pre>
 <div class="sect1">
 <h2 id="_authors">AUTHORS</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>This page was written by the ØMQ community. To make a change please
-read the ØMQ Contribution Policy at <a href="http://www.zeromq.org/docs:contributing">http://www.zeromq.org/docs:contributing</a>.</p></div>
+<div class="paragraph"><p>This ØMQ manual page was written by Martin Sustrik &lt;<a href="mailto:sustrik@250bpm.com">sustrik@250bpm.com</a>&gt; and
+Martin Lucina &lt;<a href="mailto:mato@kotelna.sk">mato@kotelna.sk</a>&gt;.</p></div>
 </div>
 </div>
 </div>
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-ØMQ 4.0.4<br />
-Last updated 2013-11-13 18:57:50 CET
+ØMQ 3.2.4<br />
+Last updated 2012-10-31 04:38:11 CET
 </div>
 </div>
 </body>

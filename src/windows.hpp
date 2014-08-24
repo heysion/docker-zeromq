@@ -1,5 +1,7 @@
 /*
-    Copyright (c) 2007-2013 Contributors as noted in the AUTHORS file
+    Copyright (c) 2010-2011 250bpm s.r.o.
+    Copyright (c) 2007-2009 iMatix Corporation
+    Copyright (c) 2007-2011 Other contributors as noted in the AUTHORS file
 
     This file is part of 0MQ.
 
@@ -165,11 +167,10 @@
  
 #include <winsock2.h>
 #include <mswsock.h>
-#include <Mstcpip.h>
 
 #include <ws2tcpip.h>
 #include <ipexport.h>
-#if !defined _WIN32_WCE
+#if !defined WINCE
 #include <process.h>
 #endif
 
