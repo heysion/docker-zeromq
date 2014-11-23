@@ -4,7 +4,7 @@
 <head>
 <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
 <meta name="generator" content="AsciiDoc 8.6.6" />
-<title>zmq_tcp(7)</title>
+<title>zmq_proxy_steerable(3)</title>
 <style type="text/css">
 /* Shared CSS for AsciiDoc xhtml11 and html5 backends */
 
@@ -736,12 +736,12 @@ asciidoc.install();
 <body class="manpage">
 <div id="header">
 <h1>
-zmq_tcp(7) Manual Page
+zmq_proxy_steerable(3) Manual Page
 </h1>
 <h2>NAME</h2>
 <div class="sectionbody">
-<p>zmq_tcp -
-   0MQ unicast transport using TCP
+<p>zmq_proxy_steerable -
+   start built-in 0MQ proxy with PAUSE/RESUME/TERMINATE control flow
 </p>
 </div>
 </div>
@@ -749,119 +749,91 @@ zmq_tcp(7) Manual Page
 <div class="sect1">
 <h2 id="_synopsis">SYNOPSIS</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>TCP is an ubiquitous, reliable, unicast transport. When connecting distributed
-applications over a network with ØMQ, using the TCP transport will likely be
-your first choice.</p></div>
+<div class="paragraph"><p><strong>int zmq_proxy_steerable (const void <em>*frontend</em>, const void <em>*backend</em>,
+     const void <em>*capture</em>, const void <em>*control</em>);</strong></p></div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_addressing">ADDRESSING</h2>
+<h2 id="_description">DESCRIPTION</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>A ØMQ endpoint is a string consisting of a <em>transport</em><tt>://</tt> followed by an
-<em>address</em>. The <em>transport</em> specifies the underlying protocol to use. The
-<em>address</em> specifies the transport-specific address to connect to.</p></div>
-<div class="paragraph"><p>For the TCP transport, the transport is <tt>tcp</tt>, and the meaning of the
-<em>address</em> part is defined below.</p></div>
-<div class="sect2">
-<h3 id="_assigning_a_local_address_to_a_socket">Assigning a local address to a socket</h3>
-<div class="paragraph"><p>When assigning a local address to a socket using <em>zmq_bind()</em> with the <em>tcp</em>
-transport, the <em>endpoint</em> shall be interpreted as an <em>interface</em> followed by a
-colon and the TCP port number to use.</p></div>
-<div class="paragraph"><p>An <em>interface</em> may be specified by either of the following:</p></div>
-<div class="ulist"><ul>
-<li>
-<p>
-The wild-card <tt>*</tt>, meaning all available interfaces.
-</p>
-</li>
-<li>
-<p>
-The primary IPv4 or IPv6 address assigned to the interface, in its numeric
-  representation.
-</p>
-</li>
-<li>
-<p>
-The non-portable interface name as defined by the operating system.
-</p>
-</li>
-</ul></div>
-<div class="paragraph"><p>The TCP port number may be specified by:</p></div>
-<div class="ulist"><ul>
-<li>
-<p>
-A numeric value, usually above 1024 on POSIX systems.
-</p>
-</li>
-<li>
-<p>
-The wild-card <tt>*</tt>, meaning a system-assigned ephemeral port.
-</p>
-</li>
-</ul></div>
-<div class="paragraph"><p>When using ephemeral ports, the caller should retrieve the actual assigned
-port using the ZMQ_LAST_ENDPOINT socket option. See <a href="zmq_getsockopt.html">zmq_getsockopt(3)</a>
-for details.</p></div>
-</div>
-<div class="sect2">
-<h3 id="_connecting_a_socket">Connecting a socket</h3>
-<div class="paragraph"><p>When connecting a socket to a peer address using <em>zmq_connect()</em> with the <em>tcp</em>
-transport, the <em>endpoint</em> shall be interpreted as a <em>peer address</em> followed by
-a colon and the TCP port number to use.</p></div>
-<div class="paragraph"><p>A <em>peer address</em> may be specified by either of the following:</p></div>
-<div class="ulist"><ul>
-<li>
-<p>
-The DNS name of the peer.
-</p>
-</li>
-<li>
-<p>
-The IPv4 or IPv6 address of the peer, in its numeric representation.
-</p>
-</li>
-</ul></div>
-<div class="paragraph"><p>Note: A description of the ZeroMQ Message Transport Protocol (ZMTP) which is
-used by the TCP transport can be found at <a href="http://rfc.zeromq.org/spec:15">http://rfc.zeromq.org/spec:15</a></p></div>
-</div>
+<div class="paragraph"><p>The <em>zmq_proxy_steerable()</em> function starts the built-in ØMQ proxy in the
+current application thread, as <em>zmq_proxy()</em> do. Please, refer to this function
+for the general description and usage. We describe here only the additional
+control flow provided by the socket passed as the fourth argument "control".</p></div>
+<div class="paragraph"><p>If the control socket is not NULL, the proxy supports control flow. If
+<em>PAUSE</em> is received on this socket, the proxy suspends its activities. If
+<em>RESUME</em> is received, it goes on. If <em>TERMINATE</em> is received, it terminates
+smoothly. At start, the proxy runs normally as if zmq_proxy was used.</p></div>
+<div class="paragraph"><p>If the control socket is NULL, the function behave exactly as if zmq_proxy
+had been called.</p></div>
+<div class="paragraph"><p>Refer to <a href="zmq_socket.html">zmq_socket(3)</a> for a description of the available socket types.
+Refer to <a href="zmq_proxy.html">zmq_proxy(3)</a> for a description of the zmq_proxy.</p></div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_examples">EXAMPLES</h2>
+<h2 id="_example_usage">EXAMPLE USAGE</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>cf zmq_proxy</p></div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_return_value">RETURN VALUE</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>The <em>zmq_proxy_steerable()</em> function returns 0 if TERMINATE is sent to its
+control socket. Otherwise, it returns <tt>-1</tt> and <em>errno</em> set to <strong>ETERM</strong> (the
+ØMQ <em>context</em> associated with either of the specified sockets was terminated).</p></div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_example">EXAMPLE</h2>
 <div class="sectionbody">
 <div class="listingblock">
-<div class="title">Assigning a local address to a socket</div>
+<div class="title">Creating a shared queue proxy</div>
 <div class="content">
-<pre><tt>//  TCP port 5555 on all available interfaces
-rc = zmq_bind(socket, "tcp://*:5555");
-assert (rc == 0);
-//  TCP port 5555 on the local loop-back interface on all platforms
-rc = zmq_bind(socket, "tcp://127.0.0.1:5555");
-assert (rc == 0);
-//  TCP port 5555 on the first Ethernet network interface on Linux
-rc = zmq_bind(socket, "tcp://eth0:5555");
-assert (rc == 0);</tt></pre>
+<pre><tt>//  Create frontend, backend and control sockets
+void *frontend = zmq_socket (context, ZMQ_ROUTER);
+assert (backend);
+void *backend = zmq_socket (context, ZMQ_DEALER);
+assert (frontend);
+void *control = zmq_socket (context, ZMQ_SUB);
+assert (control);
+
+//  Bind sockets to TCP ports
+assert (zmq_bind (frontend, "tcp://*:5555") == 0);
+assert (zmq_bind (backend, "tcp://*:5556") == 0);
+assert (zmq_connect (control, "tcp://*:5557") == 0);
+
+// Subscribe to the control socket since we have chosen SUB here
+assert (zmq_setsockopt (control, ZMQ_SUBSCRIBE, "", 0));
+
+//  Start the queue proxy, which runs until ETERM or "TERMINATE"
+//  received on the control socket
+zmq_proxy_steerable (frontend, backend, NULL, control);</tt></pre>
 </div></div>
 <div class="listingblock">
-<div class="title">Connecting a socket</div>
+<div class="title">Set up a controller in another node, process or whatever</div>
 <div class="content">
-<pre><tt>//  Connecting using an IP address
-rc = zmq_connect(socket, "tcp://192.168.1.1:5555");
-assert (rc == 0);
-//  Connecting using a DNS name
-rc = zmq_connect(socket, "tcp://server1:5555");
-assert (rc == 0);</tt></pre>
+<pre><tt>void *control = zmq_socket (context, ZMQ_PUB);
+assert (control);
+assert (zmq_bind (control, "tcp://*:5557") == 0);
+
+// pause the proxy
+assert (zmq_send (control, "PAUSE", 5, 0) == 0);
+
+// resume the proxy
+assert (zmq_send (control, "RESUME", 6, 0) == 0);
+
+// terminate the proxy
+assert (zmq_send (control, "TERMINATE", 9, 0) == 0);
+---
+
+
+SEE ALSO</tt></pre>
 </div></div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_see_also">SEE ALSO</h2>
-<div class="sectionbody">
-<div class="paragraph"><p><a href="zmq_bind.html">zmq_bind(3)</a>
+<div class="paragraph"><p><a href="zmq_proxy.html">zmq_proxy(3)</a>
+<a href="zmq_bind.html">zmq_bind(3)</a>
 <a href="zmq_connect.html">zmq_connect(3)</a>
-<a href="zmq_pgm.html">zmq_pgm(7)</a>
-<a href="zmq_ipc.html">zmq_ipc(7)</a>
-<a href="zmq_inproc.html">zmq_inproc(7)</a>
+<a href="zmq_socket.html">zmq_socket(3)</a>
 <a href="zmq.html">zmq(7)</a></p></div>
 </div>
 </div>
@@ -877,7 +849,7 @@ read the ØMQ Contribution Policy at <a href="http://www.zeromq.org/docs:contrib
 <div id="footer">
 <div id="footer-text">
 ØMQ 4.0.5<br />
-Last updated 2014-10-14 10:06:40 CEST
+Last updated 2014-03-25 15:24:33 CET
 </div>
 </div>
 </body>

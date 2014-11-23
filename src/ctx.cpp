@@ -35,6 +35,10 @@
 #include "err.hpp"
 #include "msg.hpp"
 
+#ifdef HAVE_LIBSODIUM
+#include <sodium.h>
+#endif
+
 #define ZMQ_CTX_TAG_VALUE_GOOD 0xabadcafe
 #define ZMQ_CTX_TAG_VALUE_BAD  0xdeadbeef
 
@@ -88,6 +92,12 @@ zmq::ctx_t::~ctx_t ()
     //  needed as mailboxes themselves were deallocated with their
     //  corresponding io_thread/socket objects.
     free (slots);
+
+    //  If we've done any Curve encryption, we may have a file handle
+    //  to /dev/urandom open that needs to be cleaned up.
+#ifdef HAVE_LIBSODIUM
+    randombytes_close();
+#endif
 
     //  Remove the tag, so that the object is considered dead.
     tag = ZMQ_CTX_TAG_VALUE_BAD;
@@ -445,6 +455,14 @@ void zmq::ctx_t::connect_inproc_sockets(zmq::socket_base_t *bind_socket_, option
     bind_socket_->inc_seqnum();
     pending_connection_.bind_pipe->set_tid(bind_socket_->get_tid());
 
+    if (!bind_options.recv_identity) {
+        msg_t msg;
+        const bool ok = pending_connection_.bind_pipe->read (&msg);
+        zmq_assert (ok);
+        const int rc = msg.close ();
+        errno_assert (rc == 0);
+    }
+
     if (side_ == bind_side)
     {
         command_t cmd;
@@ -476,17 +494,6 @@ void zmq::ctx_t::connect_inproc_sockets(zmq::socket_base_t *bind_socket_, option
        pending_connection_.connect_pipe->set_hwms(hwms [1], hwms [0]);
        pending_connection_.bind_pipe->set_hwms(hwms [0], hwms [1]);
 
-    if (bind_options.recv_identity) {
-    
-        msg_t id;
-        int rc = id.init_size (pending_connection_.endpoint.options.identity_size);
-        errno_assert (rc == 0);
-        memcpy (id.data (), pending_connection_.endpoint.options.identity, pending_connection_.endpoint.options.identity_size);
-        id.set_flags (msg_t::identity);
-        bool written = pending_connection_.connect_pipe->write (&id);
-        zmq_assert (written);
-        pending_connection_.connect_pipe->flush ();
-    }
     if (pending_connection_.endpoint.options.recv_identity) {
         msg_t id;
         int rc = id.init_size (bind_options.identity_size);
